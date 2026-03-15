@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code Manager</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#fff;--bg2:#f8f9fa;--bg3:#f1f3f5;--text:#1a1a1a;--text2:#6b7280;--text3:#9ca3af;
+  --border:#e5e7eb;--border2:#d1d5db;
+  --blue:#185FA5;--blue-l:#EBF4FB;--blue-d:#0C447C;
+  --teal:#0F6E56;--teal-l:#E1F5EE;
+  --amber:#BA7517;--amber-l:#FAEEDA;
+  --green:#3B6D11;--green-l:#EAF3DE;
+  --red:#A32D2D;--red-l:#FCEBEB;
+  --gray:#5F5E5A;--gray-l:#F1EFE8;
+  --r:8px;--rl:12px;
+  --f:'Segoe UI',system-ui,sans-serif;--m:'Cascadia Code','Consolas',monospace;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#1a1a1a;--bg2:#242424;--bg3:#2e2e2e;--text:#f0f0f0;--text2:#a0a0a0;--text3:#666;
+  --border:#383838;--border2:#444;
+  --blue:#4A9EDE;--blue-l:#1a2d3d;--blue-d:#7bbcef;
+  --teal:#2ab38a;--teal-l:#0d2e22;--amber:#d4922a;--amber-l:#2e1f00;
+  --green:#6ab04c;--green-l:#1a2e0a;--red:#e05c5c;--red-l:#2e1010;
+}}
+body{font-family:var(--f);background:var(--bg3);color:var(--text);font-size:14px;line-height:1.5;height:100vh;overflow:hidden}
+/* AUTH OVERLAY */
+#auth-overlay{position:fixed;inset:0;background:var(--bg3);display:flex;align-items:center;justify-content:center;z-index:1000}
+.auth-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--rl);padding:36px;width:440px;max-width:92vw;box-shadow:0 8px 40px rgba(0,0,0,.1)}
+.auth-logo{font-size:22px;font-weight:700;color:var(--text);margin-bottom:4px}
+.auth-sub{font-size:13px;color:var(--text2);margin-bottom:28px}
+.auth-step{display:none}.auth-step.active{display:block}
+.loading-spin{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* APP */
+.app{display:flex;height:100vh}
+.sidebar{width:210px;min-width:210px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.logo{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.logo-title{font-size:13px;font-weight:600;color:var(--text)}.logo-sub{font-size:10px;color:var(--text2);margin-top:1px}
+.logo-btns{display:flex;gap:4px}
+.icon-btn{background:none;border:none;cursor:pointer;font-size:15px;color:var(--text3);padding:4px;border-radius:4px;transition:all .12s}
+.icon-btn:hover{color:var(--text);background:var(--bg3)}
+.nav-section{font-size:10px;color:var(--text3);padding:14px 16px 4px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 16px;cursor:pointer;font-size:13px;color:var(--text2);border-left:2px solid transparent;transition:all .12s;user-select:none}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--bg);color:var(--blue);border-left-color:var(--blue);font-weight:500}
+.nav-icon{font-size:14px;width:18px;text-align:center}
+.user-badge{padding:10px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.main{flex:1;overflow-y:auto;background:var(--bg)}
+.view{padding:28px;display:none;max-width:980px}
+.view.active{display:block}
+.view-title{font-size:20px;font-weight:600;color:var(--text);margin-bottom:4px}
+.view-sub{font-size:13px;color:var(--text2);margin-bottom:24px}
+.cards-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
+.stat-card{background:var(--bg2);border-radius:var(--r);padding:16px;border:1px solid var(--border)}
+.stat-label{font-size:11px;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+.stat-value{font-size:28px;font-weight:600;color:var(--text)}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.section-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid var(--border2);border-radius:var(--r);background:var(--bg);color:var(--text);font-size:13px;cursor:pointer;font-family:var(--f);transition:all .12s}
+.btn:hover{background:var(--bg2)}.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}.btn-primary:hover{background:var(--blue-d);border-color:var(--blue-d)}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-danger{border-color:var(--red);color:var(--red)}.btn-danger:hover{background:var(--red-l)}
+.btn-teal{background:var(--teal);color:#fff;border-color:var(--teal)}.btn-teal:hover{opacity:.9}
+.card{background:var(--bg);border:1px solid var(--border);border-radius:var(--rl);padding:18px;margin-bottom:12px}
+.card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.card-title{font-size:14px;font-weight:600;color:var(--text)}
+.card-sub{font-size:12px;color:var(--text2);margin-top:2px}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-blue{background:var(--blue-l);color:var(--blue)}.badge-green{background:var(--green-l);color:var(--green)}
+.badge-amber{background:var(--amber-l);color:var(--amber)}.badge-red{background:var(--red-l);color:var(--red)}
+.badge-gray{background:var(--gray-l);color:var(--gray)}.badge-teal{background:var(--teal-l);color:var(--teal)}
+.progress-bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:10px}
+.progress-fill{height:100%;border-radius:3px;transition:width .4s}
+.pf-blue{background:var(--blue)}.pf-green{background:var(--teal)}.pf-amber{background:var(--amber)}.pf-red{background:var(--red)}
+.module-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:12px}
+.module-card{border:1px solid var(--border);border-radius:var(--rl);padding:16px;background:var(--bg);display:flex;flex-direction:column;position:relative}
+.module-card:hover{border-color:var(--border2);background:var(--bg2)}
+.module-card.has-spec{border-left:3px solid var(--teal)}
+.module-icon{font-size:24px;margin-bottom:8px}
+.module-name{font-size:13px;font-weight:600;color:var(--text)}
+.module-desc{font-size:11px;color:var(--text2);margin-top:3px;line-height:1.4;flex:1}
+.mod-status{position:absolute;top:12px;right:12px;width:7px;height:7px;border-radius:50%}
+.ms-done{background:var(--teal)}.ms-wip{background:var(--amber)}.ms-todo{background:var(--border2)}
+.module-actions{display:flex;gap:6px;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap}
+.form-group{margin-bottom:16px}
+.form-label{font-size:12px;font-weight:500;color:var(--text2);margin-bottom:6px;display:block}
+.form-label .hint{font-weight:400;color:var(--text3);font-style:italic}
+.form-input{width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:var(--r);background:var(--bg);color:var(--text);font-size:13px;font-family:var(--f);transition:border .12s}
+.form-input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(24,95,165,.1)}
+textarea.form-input{resize:vertical;line-height:1.5}
+select.form-input{cursor:pointer}
+.prompt-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;font-family:var(--m);font-size:12px;color:var(--text);line-height:1.7;white-space:pre-wrap;position:relative;min-height:200px}
+.copy-btn{position:absolute;top:10px;right:10px;padding:5px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);font-size:11px;cursor:pointer;color:var(--text2);font-family:var(--f);transition:all .12s}
+.copy-btn:hover{background:var(--bg3)}.copy-btn.copied{background:var(--teal-l);color:var(--teal);border-color:var(--teal)}
+.token-bar{margin-top:8px;border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;background:var(--bg)}
+.token-bar-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.token-count{font-size:13px;font-weight:600;color:var(--text)}
+.token-track{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.token-fill{height:100%;border-radius:3px;transition:width .3s,background .3s}
+.tf-ok{background:var(--teal)}.tf-warn{background:var(--amber)}.tf-danger{background:var(--red)}
+.token-details{display:flex;gap:16px;margin-top:6px;font-size:11px;color:var(--text2)}
+.token-details span span{font-weight:500;color:var(--text)}
+.tbadge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600}
+.tbadge-api{background:var(--teal-l);color:var(--teal)}.tbadge-est{background:var(--amber-l);color:var(--amber)}
+.checklist-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.checklist-item:last-child{border:none}
+.check-box{width:18px;height:18px;min-width:18px;border:1.5px solid var(--border2);border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-top:1px;transition:all .12s;font-size:11px}
+.check-box:hover{border-color:var(--blue)}.check-box.checked{background:var(--teal);border-color:var(--teal);color:#fff}
+.check-label{font-size:13px;color:var(--text);line-height:1.4}.check-label.done{color:var(--text3);text-decoration:line-through}
+.tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:20px}
+.tab{padding:9px 16px;font-size:13px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s;user-select:none}
+.tab:hover{color:var(--text)}.tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:500}
+.step-indicator{display:flex;align-items:center;gap:8px;margin-bottom:24px}
+.step{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text3)}
+.step.active{color:var(--blue);font-weight:500}.step.done{color:var(--teal)}
+.step-dot{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600}
+.step.active .step-dot{border-color:var(--blue);background:var(--blue-l);color:var(--blue)}
+.step.done .step-dot{border-color:var(--teal);background:var(--teal-l);color:var(--teal)}
+.step-line{flex:1;height:1px;background:var(--border)}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.tag{padding:2px 8px;border-radius:20px;font-size:11px;background:var(--bg2);color:var(--text2);border:1px solid var(--border)}
+.empty-state{text-align:center;padding:48px 20px;color:var(--text2)}
+.empty-icon{font-size:36px;margin-bottom:14px;opacity:.5}
+.empty-text{font-size:13px;margin-bottom:18px}
+.divider{height:1px;background:var(--border);margin:18px 0}
+.action-row{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(2px)}
+.modal{background:var(--bg);border-radius:var(--rl);border:1px solid var(--border);padding:26px;width:580px;max-width:94vw;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-lg{width:720px}.modal-title{font-size:16px;font-weight:600;margin-bottom:18px;color:var(--text)}
+.info-box{border-radius:var(--r);padding:12px 14px;margin:12px 0;font-size:12px;line-height:1.6;border-left:3px solid}
+.info-box{background:var(--blue-l);color:var(--blue);border-color:var(--blue)}
+.info-box.success{background:var(--teal-l);color:var(--teal);border-color:var(--teal)}
+.info-box.warning{background:var(--amber-l);color:var(--amber);border-color:var(--amber)}
+.info-box.danger{background:var(--red-l);color:var(--red);border-color:var(--red)}
+.pill-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pill{padding:5px 12px;border:1px solid var(--border2);border-radius:20px;font-size:12px;cursor:pointer;color:var(--text2);transition:all .12s;user-select:none}
+.pill.selected{background:var(--blue);border-color:var(--blue);color:#fff}
+.pill:hover:not(.selected){background:var(--bg2);color:var(--text)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px}
+.quick-card{padding:16px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer;transition:all .12s}
+.quick-card:hover{background:var(--bg2);border-color:var(--blue)}
+.quick-card-icon{font-size:20px;margin-bottom:8px}
+.quick-card-title{font-size:13px;font-weight:600;color:var(--text)}
+.quick-card-sub{font-size:11px;color:var(--text2);margin-top:3px}
+.spec-viewer{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:20px;font-size:13px;line-height:1.8;white-space:pre-wrap;max-height:400px;overflow-y:auto;color:var(--text)}
+.spec-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;background:var(--teal-l);color:var(--teal);border-radius:20px;font-size:11px;font-weight:600;margin-bottom:12px}
+.prompt-generated{background:var(--blue-l);border:1px solid var(--blue);border-radius:var(--r);padding:16px;font-family:var(--m);font-size:12px;color:var(--text);line-height:1.7;white-space:pre-wrap;position:relative;margin-top:12px}
+.pricing-table{width:100%;font-size:12px;border-collapse:collapse}
+.pricing-table td,.pricing-table th{padding:6px 10px;border:1px solid var(--border);text-align:left}
+.pricing-table th{background:var(--bg2);font-weight:600;font-size:11px;color:var(--text2)}
+.api-key-input-wrap{position:relative}
+.api-key-input-wrap input{padding-right:80px}
+.toggle-key-btn{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:11px;color:var(--text2);padding:4px 6px}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--teal);color:#fff;padding:12px 20px;border-radius:var(--r);font-size:13px;font-weight:500;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.2)}
+.toast.show{opacity:1}
+.sidebar-bottom{margin-top:auto;padding:14px 16px;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<!-- AUTH OVERLAY -->
+<div id="auth-overlay">
+  <!-- LOADING -->
+  <div id="auth-loading" class="auth-step active">
+    <div style="text-align:center">
+      <div class="loading-spin"></div>
+      <div style="font-size:13px;color:var(--text2)">Connexion en cours...</div>
+    </div>
+  </div>
+  <!-- SETUP -->
+  <div id="auth-setup" class="auth-step">
+    <div class="auth-card">
+      <div class="auth-logo">Claude Code Manager</div>
+      <div class="auth-sub">Configuration initiale — connectez votre base Supabase</div>
+      <div class="form-group">
+        <label class="form-label">URL du projet Supabase</label>
+        <input class="form-input" id="cfg-url" placeholder="https://xxxx.supabase.co">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Clé publique (anon key)</label>
+        <input class="form-input" id="cfg-key" placeholder="eyJhbGci...">
+      </div>
+      <div class="info-box" style="margin-bottom:16px">Ces informations se trouvent dans votre projet Supabase → Settings → API. Elles sont stockées uniquement dans ce navigateur.</div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="saveConfig()">Continuer →</button>
+    </div>
+  </div>
+  <!-- LOGIN -->
+  <div id="auth-login" class="auth-step">
+    <div class="auth-card">
+      <div class="auth-logo">Claude Code Manager</div>
+      <div class="auth-sub">Connectez-vous avec votre adresse email</div>
+      <div class="form-group">
+        <label class="form-label">Adresse email</label>
+        <input class="form-input" id="login-email" placeholder="votre@email.com" type="email">
+      </div>
+      <div class="info-box" style="margin-bottom:16px">Un lien de connexion vous sera envoyé par email. Cliquez dessus pour accéder à l'application. Aucun mot de passe requis.</div>
+      <button class="btn btn-primary" id="login-btn" style="width:100%;justify-content:center" onclick="sendMagicLink()">Envoyer le lien de connexion</button>
+      <button class="btn btn-sm" style="width:100%;justify-content:center;margin-top:8px" onclick="resetConfig()">Modifier la configuration Supabase</button>
+    </div>
+  </div>
+  <!-- EMAIL SENT -->
+  <div id="auth-sent" class="auth-step">
+    <div class="auth-card" style="text-align:center">
+      <div style="font-size:48px;margin-bottom:16px">✉️</div>
+      <div class="auth-logo" style="justify-content:center;margin-bottom:8px">Email envoyé !</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:24px">Vérifiez votre boîte mail et cliquez sur le lien de connexion. Revenez ensuite sur cette page — elle se mettra à jour automatiquement.</div>
+      <button class="btn btn-sm" onclick="showAuthStep('login')">← Retour</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div class="app" id="main-app" style="display:none">
+  <div class="sidebar">
+    <div class="logo">
+      <div><div class="logo-title">Claude Code Manager</div><div class="logo-sub">Gestion de projets & modules</div></div>
+      <div class="logo-btns">
+        <button class="icon-btn" onclick="openModal('settings')" title="Paramètres">⚙️</button>
+        <button class="icon-btn" onclick="confirmLogout()" title="Déconnexion">⏻</button>
+      </div>
+    </div>
+    <div class="nav-section">Navigation</div>
+    <div class="nav-item active" onclick="showView('dashboard',this)"><span class="nav-icon">⊞</span>Tableau de bord</div>
+    <div class="nav-item" onclick="showView('projects',this)"><span class="nav-icon">◫</span>Mes projets</div>
+    <div class="nav-item" onclick="showView('modules',this)"><span class="nav-icon">⬡</span>Bibliothèque modules</div>
+    <div class="nav-section">Outils</div>
+    <div class="nav-item" onclick="showView('prompts',this)"><span class="nav-icon">✦</span>Générateur prompts</div>
+    <div class="nav-item" onclick="showView('tokens',this)"><span class="nav-icon">◈</span>Compteur de tokens</div>
+    <div class="nav-item" onclick="showView('session',this)"><span class="nav-icon">◎</span>Planifier session</div>
+    <div class="nav-item" onclick="showView('checklist',this)"><span class="nav-icon">✓</span>Checklists</div>
+    <div class="sidebar-bottom">
+      <div id="user-email" style="font-size:10px;color:var(--text3);margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm" onclick="exportData()" style="flex:1;justify-content:center">↓ Export</button>
+        <button class="btn btn-sm" onclick="document.getElementById('import-file').click()" style="flex:1;justify-content:center">↑ Import</button>
+      </div>
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(this)">
+    </div>
+  </div>
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div id="view-dashboard" class="view active">
+      <div class="view-title">Tableau de bord</div>
+      <div class="view-sub">Vue d'ensemble de vos projets et modules</div>
+      <div class="cards-grid">
+        <div class="stat-card"><div class="stat-label">Projets actifs</div><div class="stat-value" id="s-projects">0</div><div class="stat-sub">en développement</div></div>
+        <div class="stat-card"><div class="stat-label">Modules bibliothèque</div><div class="stat-value" id="s-modules">0</div><div class="stat-sub">briques réutilisables</div></div>
+        <div class="stat-card"><div class="stat-label">Sessions réalisées</div><div class="stat-value" id="s-sessions">0</div><div class="stat-sub">sessions planifiées</div></div>
+      </div>
+      <div class="section-title">Démarrage rapide</div>
+      <div class="quick-grid">
+        <div class="quick-card" onclick="showView('projects',document.querySelectorAll('.nav-item')[1])"><div class="quick-card-icon">◫</div><div class="quick-card-title">Nouveau projet</div><div class="quick-card-sub">Créer et documenter un projet Claude Code</div></div>
+        <div class="quick-card" onclick="showView('modules',document.querySelectorAll('.nav-item')[2])"><div class="quick-card-icon">⬡</div><div class="quick-card-title">Ajouter un module</div><div class="quick-card-sub">Enrichir la bibliothèque réutilisable</div></div>
+        <div class="quick-card" onclick="showView('prompts',document.querySelectorAll('.nav-item')[3])"><div class="quick-card-icon">✦</div><div class="quick-card-title">Générer un prompt</div><div class="quick-card-sub">Prêt à coller dans Claude Code</div></div>
+        <div class="quick-card" onclick="showView('tokens',document.querySelectorAll('.nav-item')[4])"><div class="quick-card-icon">◈</div><div class="quick-card-title">Analyser mes tokens</div><div class="quick-card-sub">Compter et optimiser mes prompts</div></div>
+      </div>
+      <div id="dash-recent"></div>
+    </div>
+
+    <!-- PROJETS -->
+    <div id="view-projects" class="view">
+      <div class="view-title">Mes projets</div>
+      <div class="view-sub">Créez et suivez vos projets Claude Code</div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px"><button class="btn btn-primary" onclick="openModal('project')">+ Nouveau projet</button></div>
+      <div id="projects-list"></div>
+    </div>
+
+    <!-- MODULES -->
+    <div id="view-modules" class="view">
+      <div class="view-title">Bibliothèque de modules</div>
+      <div class="view-sub">Vos briques réutilisables — avec specs fonctionnelles intégrées</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div style="font-size:12px;color:var(--text2)">
+          <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:8px;height:8px;background:var(--teal);border-radius:50%;display:inline-block"></span>Avec specs</span>&nbsp;&nbsp;
+          <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:8px;height:8px;background:var(--amber);border-radius:50%;display:inline-block"></span>En cours</span>&nbsp;&nbsp;
+          <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:8px;height:8px;background:var(--border2);border-radius:50%;display:inline-block"></span>À faire</span>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('module')">+ Nouveau module</button>
+      </div>
+      <div class="tab-bar">
+        <div class="tab active" onclick="filterMod('tous',this)">Tous</div>
+        <div class="tab" onclick="filterMod('done',this)">Terminés</div>
+        <div class="tab" onclick="filterMod('wip',this)">En cours</div>
+        <div class="tab" onclick="filterMod('todo',this)">À faire</div>
+        <div class="tab" onclick="filterMod('specs',this)">Avec specs</div>
+      </div>
+      <div id="modules-grid" class="module-grid"></div>
+    </div>
+
+    <!-- PROMPTS -->
+    <div id="view-prompts" class="view">
+      <div class="view-title">Générateur de prompts</div>
+      <div class="view-sub">Remplissez, copiez, collez dans Claude Code</div>
+      <div class="tab-bar">
+        <div class="tab active" onclick="switchPTab('demarrage',this)">Démarrage projet</div>
+        <div class="tab" onclick="switchPTab('module',this)">Module</div>
+        <div class="tab" onclick="switchPTab('bug',this)">Correction bug</div>
+        <div class="tab" onclick="switchPTab('reprise',this)">Reprise session</div>
+      </div>
+      <div id="ptab-demarrage">
+        <div class="two-col">
+          <div>
+            <div class="form-group"><label class="form-label">Nom du projet</label><input class="form-input" id="pd-nom" placeholder="ex: Expert Data Mining" oninput="gP()"></div>
+            <div class="form-group"><label class="form-label">Description</label><textarea class="form-input" id="pd-desc" placeholder="Ce que fait l'application..." oninput="gP()" style="min-height:80px"></textarea></div>
+            <div class="form-group"><label class="form-label">Utilisateurs et rôles</label><input class="form-input" id="pd-users" placeholder="ex: Experts (saisie), Admin (suivi)" oninput="gP()"></div>
+            <div class="form-group"><label class="form-label">Framework</label><select class="form-input" id="pd-fw" onchange="gP()"><option>React + Vite</option><option>Vue 3</option><option>Next.js</option><option>HTML/CSS/JS vanilla</option></select></div>
+            <div class="form-group"><label class="form-label">Base de données</label><select class="form-input" id="pd-db" onchange="gP()"><option>Supabase</option><option>Firebase</option><option>PocketBase</option><option>Aucune</option></select></div>
+            <div class="form-group"><label class="form-label">Modules à inclure</label><div class="pill-group" id="pd-pills"></div></div>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:500;color:var(--text2);margin-bottom:8px">Prompt généré</div>
+            <div class="prompt-box" id="pb-d"><button class="copy-btn" id="cb-d" onclick="copyP('pb-d','cb-d')">Copier ↗</button><span id="pt-d">Remplissez les champs...</span></div>
+            <div id="tc-d" class="token-bar" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+      <div id="ptab-module" style="display:none">
+        <div class="info-box success" style="margin-bottom:16px">💡 Sélectionnez un module avec specs pour l'intégrer automatiquement dans le prompt.</div>
+        <div class="two-col">
+          <div>
+            <div class="form-group"><label class="form-label">Module de la bibliothèque <span class="hint">(facultatif)</span></label><select class="form-input" id="pm-select" onchange="loadModuleSpecs()"><option value="">-- Saisir manuellement --</option></select></div>
+            <div class="form-group"><label class="form-label">Nom du module</label><input class="form-input" id="pm-nom" placeholder="ex: media-importer" oninput="gM()"></div>
+            <div class="form-group"><label class="form-label">Ce que le module doit faire</label><textarea class="form-input" id="pm-desc" placeholder="Décrire les fonctionnalités..." oninput="gM()" style="min-height:80px"></textarea></div>
+            <div class="form-group"><label class="form-label">Données reçues (props)</label><input class="form-input" id="pm-props" placeholder="ex: value (string), maxWords (number)" oninput="gM()"></div>
+            <div class="form-group"><label class="form-label">Ce qu'il retourne / émet</label><input class="form-input" id="pm-events" placeholder="ex: onChange(text), onWordCount(n)" oninput="gM()"></div>
+            <div class="form-group"><label class="form-label">Framework</label><select class="form-input" id="pm-fw" onchange="gM()"><option>React + Vite</option><option>Vue 3</option><option>HTML/CSS/JS</option></select></div>
+            <div class="form-group"><label class="form-label">Contraintes</label><textarea class="form-input" id="pm-const" placeholder="ex: max 150 lignes..." oninput="gM()" style="min-height:60px"></textarea></div>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:500;color:var(--text2);margin-bottom:8px">Prompt généré</div>
+            <div class="prompt-box" id="pb-m" style="min-height:380px"><button class="copy-btn" id="cb-m" onclick="copyP('pb-m','cb-m')">Copier ↗</button><span id="pt-m">Remplissez les champs...</span></div>
+            <div id="tc-m" class="token-bar" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+      <div id="ptab-bug" style="display:none">
+        <div class="two-col">
+          <div>
+            <div class="form-group"><label class="form-label">Fichier concerné</label><input class="form-input" id="pb-fic" placeholder="ex: modules/progress-gauge/ProgressBar.jsx" oninput="gB()"></div>
+            <div class="form-group"><label class="form-label">Comportement actuel</label><textarea class="form-input" id="pb-act" placeholder="Ce qui se passe..." oninput="gB()" style="min-height:80px"></textarea></div>
+            <div class="form-group"><label class="form-label">Comportement attendu</label><textarea class="form-input" id="pb-att" placeholder="Ce qui devrait se passer..." oninput="gB()" style="min-height:80px"></textarea></div>
+            <div class="form-group"><label class="form-label">Conditions</label><input class="form-input" id="pb-cond" placeholder="Toujours / Seulement quand..." oninput="gB()"></div>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:500;color:var(--text2);margin-bottom:8px">Prompt généré</div>
+            <div class="prompt-box" id="pb-b"><button class="copy-btn" id="cb-b" onclick="copyP('pb-b','cb-b')">Copier ↗</button><span id="pt-b">Remplissez les champs...</span></div>
+            <div id="tc-b" class="token-bar" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+      <div id="ptab-reprise" style="display:none">
+        <div class="two-col">
+          <div>
+            <div class="form-group"><label class="form-label">Projet</label><input class="form-input" id="pr-proj" placeholder="ex: Expert Data Mining" oninput="gR()"></div>
+            <div class="form-group"><label class="form-label">Ce qui a été fait</label><textarea class="form-input" id="pr-fait" placeholder="Module X développé..." oninput="gR()" style="min-height:80px"></textarea></div>
+            <div class="form-group"><label class="form-label">Objectif de cette session</label><textarea class="form-input" id="pr-obj" placeholder="Ce que je veux accomplir..." oninput="gR()" style="min-height:80px"></textarea></div>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:500;color:var(--text2);margin-bottom:8px">Prompt généré</div>
+            <div class="prompt-box" id="pb-r"><button class="copy-btn" id="cb-r" onclick="copyP('pb-r','cb-r')">Copier ↗</button><span id="pt-r">Remplissez les champs...</span></div>
+            <div id="tc-r" class="token-bar" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOKENS -->
+    <div id="view-tokens" class="view">
+      <div class="view-title">Compteur de tokens</div>
+      <div class="view-sub">Analysez l'impact de vos prompts avant de les envoyer à Claude</div>
+      <div id="tokens-api-status"></div>
+      <div class="card" style="margin-bottom:16px">
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">Collez ou rédigez votre prompt</div>
+        <textarea class="form-input" id="token-input" placeholder="Collez votre prompt ici..." style="min-height:180px;font-family:var(--m);font-size:12px" oninput="analyzeTokens()"></textarea>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="analyzeTokens()">Analyser</button>
+          <button class="btn" onclick="loadLastPrompt()">Charger dernier prompt généré</button>
+          <button class="btn" onclick="document.getElementById('token-input').value='';analyzeTokens()">Effacer</button>
+        </div>
+      </div>
+      <div id="token-result" style="display:none">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+          <div class="stat-card"><div class="stat-label">Tokens</div><div class="stat-value" id="tr-tokens">0</div><div class="stat-sub" id="tr-method"></div></div>
+          <div class="stat-card"><div class="stat-label">Contexte max</div><div class="stat-value">200k</div><div class="stat-sub">Claude Sonnet</div></div>
+          <div class="stat-card"><div class="stat-label">Occupation</div><div class="stat-value" id="tr-pct">0%</div><div class="stat-sub" id="tr-pct-sub"></div></div>
+          <div class="stat-card"><div class="stat-label">Coût estimé</div><div class="stat-value" id="tr-cost">—</div><div class="stat-sub">à $3/M tokens</div></div>
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div style="font-size:13px;font-weight:600;color:var(--text)">Occupation de la fenêtre de contexte</div>
+            <span id="tr-status-badge" class="badge"></span>
+          </div>
+          <div style="height:12px;background:var(--border);border-radius:6px;overflow:hidden">
+            <div id="tr-fill" style="height:100%;border-radius:6px;transition:width .4s,background .3s"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:4px">
+            <span>0</span><span>50k</span><span>100k</span><span>150k</span><span>200k</span>
+          </div>
+        </div>
+        <div class="card"><div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">Conseils</div><div id="tr-tips"></div></div>
+        <div class="card">
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">Tarifs de référence Claude</div>
+          <table class="pricing-table">
+            <tr><th>Modèle</th><th>Input ($/M tokens)</th><th>Output ($/M tokens)</th></tr>
+            <tr><td>Claude Opus 4.6</td><td>$15</td><td>$75</td></tr>
+            <tr><td>Claude Sonnet 4.6</td><td>$3</td><td>$15</td></tr>
+            <tr><td>Claude Haiku 4.5</td><td>$0.80</td><td>$4</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SESSION -->
+    <div id="view-session" class="view">
+      <div class="view-title">Planifier une session</div>
+      <div class="view-sub">Préparez votre prochaine session Claude Code</div>
+      <div class="step-indicator">
+        <div class="step active" id="si1"><div class="step-dot">1</div>Contexte</div>
+        <div class="step-line"></div>
+        <div class="step" id="si2"><div class="step-dot">2</div>Objectif</div>
+        <div class="step-line"></div>
+        <div class="step" id="si3"><div class="step-dot">3</div>Prompt prêt</div>
+      </div>
+      <div id="ss1"><div class="card">
+        <div class="form-group"><label class="form-label">Pour quel projet ?</label><select class="form-input" id="ss-proj"><option value="">Sélectionner...</option></select></div>
+        <div class="form-group"><label class="form-label">Type de session</label>
+          <div class="pill-group">
+            <div class="pill selected" onclick="selST(this,'module')">Développer un module</div>
+            <div class="pill" onclick="selST(this,'bug')">Corriger un bug</div>
+            <div class="pill" onclick="selST(this,'feature')">Nouvelle fonctionnalité</div>
+            <div class="pill" onclick="selST(this,'refacto')">Refactoring</div>
+          </div>
+        </div>
+        <div class="action-row"><button class="btn btn-primary" onclick="sNext(2)">Suivant →</button></div>
+      </div></div>
+      <div id="ss2" style="display:none"><div class="card">
+        <div class="form-group"><label class="form-label">Objectif précis (1 seule chose)</label><textarea class="form-input" id="ss-obj" style="min-height:80px"></textarea></div>
+        <div class="form-group"><label class="form-label">Fichier(s) ou module(s) concerné(s)</label><input class="form-input" id="ss-fic"></div>
+        <div class="info-box warning">Règle d'or : si vous ne pouvez pas résumer l'objectif en une phrase, divisez la session en deux.</div>
+        <div class="action-row"><button class="btn" onclick="sNext(1)">← Retour</button><button class="btn btn-primary" onclick="sNext(3)">Suivant →</button></div>
+      </div></div>
+      <div id="ss3" style="display:none"><div class="card">
+        <div class="section-title">Checklist avant de commencer</div>
+        <div id="ss-checks"></div>
+        <div class="divider"></div>
+        <div class="section-title">Votre prompt de démarrage</div>
+        <div class="prompt-box" id="ss-prompt" style="margin-bottom:8px"><button class="copy-btn" id="ss-cb" onclick="copyP('ss-prompt','ss-cb')">Copier ↗</button><span id="ss-pt"></span></div>
+        <div id="tc-session" class="token-bar" style="display:none"></div>
+        <div class="action-row" style="margin-top:14px">
+          <button class="btn" onclick="sNext(2)">← Retour</button>
+          <button class="btn btn-primary" onclick="saveSession()">Enregistrer la session</button>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- CHECKLISTS -->
+    <div id="view-checklist" class="view">
+      <div class="view-title">Checklists</div>
+      <div class="view-sub">Cochez chaque étape clé de votre processus</div>
+      <div class="tab-bar">
+        <div class="tab active" onclick="switchCTab('avant-projet',this)">Avant projet</div>
+        <div class="tab" onclick="switchCTab('avant-session',this)">Avant session</div>
+        <div class="tab" onclick="switchCTab('apres-session',this)">Après session</div>
+        <div class="tab" onclick="switchCTab('livraison',this)">Livraison devs</div>
+      </div>
+      <div id="checklist-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SETTINGS -->
+<div id="modal-settings" style="display:none">
+  <div class="modal-backdrop" onclick="if(event.target===this)closeModal('settings')">
+    <div class="modal">
+      <div class="modal-title">⚙️ Paramètres</div>
+      <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Clé API Anthropic — Comptage de tokens</div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">Entrez votre clé API pour activer le comptage exact de tokens. Cette fonctionnalité est <strong>gratuite</strong> et ne consomme pas votre quota.</p>
+      <div class="form-group">
+        <label class="form-label">Clé API <span class="hint">(sk-ant-...)</span></label>
+        <div class="api-key-input-wrap">
+          <input class="form-input" type="password" id="settings-api-key" placeholder="sk-ant-api03-...">
+          <button class="toggle-key-btn" onclick="this.previousElementSibling.type=this.previousElementSibling.type==='password'?'text':'password';this.textContent=this.previousElementSibling.type==='password'?'Afficher':'Masquer'">Afficher</button>
+        </div>
+      </div>
+      <div class="info-box warning">⚠️ Stockée uniquement dans votre navigateur. Utilisée uniquement pour les appels de comptage de tokens vers api.anthropic.com.</div>
+      <div id="api-test-result"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-primary" onclick="saveApiKey()">Enregistrer</button>
+        <button class="btn" onclick="testApiKey()">Tester</button>
+        <button class="btn btn-danger btn-sm" onclick="clearApiKey()">Supprimer</button>
+      </div>
+      <div class="divider"></div>
+      <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Connexion Supabase</div>
+      <p style="font-size:12px;color:var(--text2);line-height:1.6">Vos données sont synchronisées sur Supabase. Vous pouvez vous connecter depuis n'importe quel ordinateur.</p>
+      <div style="margin-top:8px;font-size:12px;color:var(--text2)">URL : <strong id="cfg-display-url" style="color:var(--text)"></strong></div>
+      <div style="margin-top:4px;font-size:12px;color:var(--text2)">Email : <strong id="cfg-display-email" style="color:var(--text)"></strong></div>
+      <div class="action-row"><button class="btn btn-primary" onclick="closeModal('settings')">Fermer</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PROJET -->
+<div id="modal-project" style="display:none">
+  <div class="modal-backdrop" onclick="if(event.target===this)closeModal('project')">
+    <div class="modal">
+      <div class="modal-title">Nouveau projet</div>
+      <div class="form-group"><label class="form-label">Nom *</label><input class="form-input" id="np-nom" placeholder="ex: Expert Data Mining"></div>
+      <div class="form-group"><label class="form-label">Description</label><textarea class="form-input" id="np-desc" style="min-height:70px"></textarea></div>
+      <div class="form-group"><label class="form-label">Framework</label><select class="form-input" id="np-fw"><option>React + Vite</option><option>Vue 3</option><option>Next.js</option><option>HTML/CSS/JS</option></select></div>
+      <div class="form-group"><label class="form-label">Base de données</label><select class="form-input" id="np-db"><option>Supabase</option><option>Firebase</option><option>PocketBase</option><option>Aucune</option></select></div>
+      <div class="form-group"><label class="form-label">Statut</label><select class="form-input" id="np-status"><option value="cadrage">Cadrage</option><option value="modules">Développement modules</option><option value="assemblage">Assemblage</option><option value="iteration">Itération</option></select></div>
+      <div class="action-row"><button class="btn" onclick="closeModal('project')">Annuler</button><button class="btn btn-primary" onclick="saveProjectUI()">Créer</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MODULE -->
+<div id="modal-module" style="display:none">
+  <div class="modal-backdrop" onclick="if(event.target===this)closeModal('module')">
+    <div class="modal modal-lg">
+      <div class="modal-title">Nouveau module</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div class="form-group"><label class="form-label">Nom *</label><input class="form-input" id="nm-nom" placeholder="ex: media-importer"></div>
+          <div class="form-group"><label class="form-label">Description courte</label><input class="form-input" id="nm-desc"></div>
+          <div class="form-group"><label class="form-label">Catégorie</label>
+            <div class="pill-group">
+              <div class="pill selected" onclick="selMCat(this,'ui')">Interface</div>
+              <div class="pill" onclick="selMCat(this,'data')">Données</div>
+              <div class="pill" onclick="selMCat(this,'auth')">Auth</div>
+              <div class="pill" onclick="selMCat(this,'export')">Export</div>
+              <div class="pill" onclick="selMCat(this,'util')">Utilitaire</div>
+            </div>
+          </div>
+          <div class="form-group"><label class="form-label">Statut</label><select class="form-input" id="nm-status"><option value="todo">À développer</option><option value="wip">En cours</option><option value="done">Terminé</option></select></div>
+          <div class="form-group"><label class="form-label">Icône</label><input class="form-input" id="nm-icon" placeholder="ex: 🎬" style="max-width:90px"></div>
+          <div class="form-group"><label class="form-label">Chemin SPECS.md <span class="hint">(sur votre disque)</span></label><input class="form-input" id="nm-path" placeholder="ex: ma-librairie-modules/media-importer/SPECS.md"></div>
+        </div>
+        <div>
+          <div class="form-group" style="height:100%">
+            <label class="form-label">Description fonctionnelle <span class="hint">— collez le contenu de Claude</span></label>
+            <textarea class="form-input" id="nm-specs" style="min-height:340px;font-family:var(--m);font-size:12px" placeholder="Collez ici la description fonctionnelle complète..."></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="action-row"><button class="btn" onclick="closeModal('module')">Annuler</button><button class="btn btn-primary" onclick="saveModuleUI()">Ajouter</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SPECS -->
+<div id="modal-specs" style="display:none">
+  <div class="modal-backdrop" onclick="if(event.target===this)closeModal('specs')">
+    <div class="modal modal-lg">
+      <div id="specs-modal-title" class="modal-title"></div>
+      <div class="spec-badge" id="specs-badge"></div>
+      <div class="spec-viewer" id="specs-viewer"></div>
+      <div class="divider"></div>
+      <div style="font-size:12px;font-weight:500;color:var(--text2);margin-bottom:8px">Prompt de démarrage généré</div>
+      <div class="prompt-generated" style="position:relative">
+        <button class="copy-btn" id="specs-copy-btn" onclick="copySpecsPrompt()">Copier ↗</button>
+        <span id="specs-prompt-text"></span>
+      </div>
+      <div id="tc-specs" class="token-bar" style="display:none;margin-top:8px"></div>
+      <div class="action-row">
+        <button class="btn" onclick="closeModal('specs')">Fermer</button>
+        <button class="btn btn-teal" onclick="copySpecsPrompt()">Copier le prompt ↗</button>
+        <button class="btn btn-primary" onclick="editModuleSpecs(currentSpecsModuleId)">Modifier</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDIT MODULE -->
+<div id="modal-edit-module" style="display:none">
+  <div class="modal-backdrop" onclick="if(event.target===this)closeModal('edit-module')">
+    <div class="modal modal-lg">
+      <div class="modal-title">Modifier le module</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="em-nom"></div>
+          <div class="form-group"><label class="form-label">Description</label><input class="form-input" id="em-desc"></div>
+          <div class="form-group"><label class="form-label">Statut</label><select class="form-input" id="em-status"><option value="todo">À développer</option><option value="wip">En cours</option><option value="done">Terminé</option></select></div>
+          <div class="form-group"><label class="form-label">Icône</label><input class="form-input" id="em-icon" style="max-width:90px"></div>
+          <div class="form-group"><label class="form-label">Chemin SPECS.md</label><input class="form-input" id="em-path"></div>
+        </div>
+        <div>
+          <div class="form-group" style="height:100%">
+            <label class="form-label">Description fonctionnelle</label>
+            <textarea class="form-input" id="em-specs" style="min-height:340px;font-family:var(--m);font-size:12px"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="action-row"><button class="btn" onclick="closeModal('edit-module')">Annuler</button><button class="btn btn-primary" onclick="saveEditModuleUI()">Enregistrer</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+// ===== STATE =====
+var S={projects:[],modules:[],sessions:0,modFilter:'tous',modCat:'ui',sType:'module',sStep:1,checkTab:'avant-projet',checks:{}};
+var currentSpecsModuleId=null;
+var editModuleId=null;
+var lastGeneratedPrompt='';
+var tokenDebounce=null;
+var MAX_CTX=200000;
+var sb=null;
+var currentUser=null;
+
+var CL={
+  'avant-projet':['Brief fonctionnel rédigé en français, sans jargon technique','Stack technique choisie','Dépôt Git créé et initialisé','Dossier du projet créé sur le disque dur','Dossier ma-librairie-modules créé','Prompt de démarrage préparé','Liste des modules établie et priorisée','CLAUDE.md généré et validé','ARCHITECTURE.md généré et validé'],
+  'avant-session':["L'objectif est unique et tient en une phrase",'Le fichier ou module cible est identifié','Le dernier commit Git est à jour','CLAUDE.md est à jour'],
+  'apres-session':["Le résultat correspond à l'objectif",'Tests manuels effectués','CHANGELOG.md mis à jour','Commit Git réalisé','ARCHITECTURE.md mis à jour si nouveau module','README.md du module mis à jour',"Aucune régression détectée"],
+  'livraison':["Chaque module a son README.md",'Le code est commenté en français',"ARCHITECTURE.md à jour",'Aucun fichier > 200 lignes','Variables sensibles dans .env','Guide de démarrage local existe','Tous les modules documentés']
+};
+
+// ===== CONFIG =====
+function getConfig(){return{url:localStorage.getItem('sb_url')||'',key:localStorage.getItem('sb_key')||''};}
+function saveConfig(){
+  var url=document.getElementById('cfg-url').value.trim();
+  var key=document.getElementById('cfg-key').value.trim();
+  if(!url||!key){toast('Remplissez les deux champs','error');return;}
+  localStorage.setItem('sb_url',url);localStorage.setItem('sb_key',key);
+  initApp();
+}
+function resetConfig(){localStorage.removeItem('sb_url');localStorage.removeItem('sb_key');showAuthStep('setup');}
+
+// ===== SUPABASE =====
+function initSupabase(){
+  var c=getConfig();
+  if(!c.url||!c.key)return false;
+  sb=supabase.createClient(c.url,c.key);
+  return true;
+}
+
+async function sendMagicLink(){
+  var email=document.getElementById('login-email').value.trim();
+  if(!email){toast('Entrez votre adresse email','error');return;}
+  var btn=document.getElementById('login-btn');
+  btn.disabled=true;btn.textContent='Envoi en cours...';
+  try{
+    var{error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.href}});
+    if(error)throw error;
+    showAuthStep('sent');
+  }catch(e){
+    toast('Erreur : '+e.message,'error');
+    btn.disabled=false;btn.textContent='Envoyer le lien de connexion';
+  }
+}
+
+async function checkAuth(){
+  var{data:{session}}=await sb.auth.getSession();
+  if(session){currentUser=session.user;return true;}
+  return false;
+}
+
+function confirmLogout(){
+  if(confirm('Se déconnecter ?'))logout();
+}
+async function logout(){
+  await sb.auth.signOut();
+  currentUser=null;
+  document.getElementById('main-app').style.display='none';
+  document.getElementById('auth-overlay').style.display='flex';
+  showAuthStep('login');
+}
+
+// ===== DB OPERATIONS =====
+async function dbLoadAll(){
+  await Promise.all([dbLoadProjects(),dbLoadModules(),dbLoadSettings()]);
+}
+
+async function dbLoadProjects(){
+  var{data}=await sb.from('projects').select('*').eq('user_id',currentUser.id).order('id');
+  S.projects=(data||[]).map(p=>({id:p.id,nom:p.nom,desc:p.description,fw:p.fw,db:p.db_type,status:p.status,created:p.created}));
+}
+async function dbSaveProject(p){
+  await sb.from('projects').upsert({id:p.id,nom:p.nom,description:p.desc,fw:p.fw,db_type:p.db,status:p.status,created:p.created,user_id:currentUser.id});
+}
+async function dbDeleteProject(id){
+  await sb.from('projects').delete().eq('id',id).eq('user_id',currentUser.id);
+}
+
+async function dbLoadModules(){
+  var{data}=await sb.from('modules').select('*').eq('user_id',currentUser.id).order('id');
+  S.modules=(data||[]).map(m=>({id:m.id,nom:m.nom,desc:m.description,cat:m.cat,status:m.status,icon:m.icon,specs:m.specs,specsPath:m.specs_path}));
+}
+async function dbSaveModule(m){
+  await sb.from('modules').upsert({id:m.id,nom:m.nom,description:m.desc,cat:m.cat,status:m.status,icon:m.icon,specs:m.specs,specs_path:m.specsPath,user_id:currentUser.id});
+}
+async function dbDeleteModule(id){
+  await sb.from('modules').delete().eq('id',id).eq('user_id',currentUser.id);
+}
+
+async function dbLoadSettings(){
+  var{data}=await sb.from('settings').select('*').eq('user_id',currentUser.id).maybeSingle();
+  if(data){S.sessions=data.sessions||0;S.checks=data.checks||{};}
+}
+async function dbSaveSettings(){
+  await sb.from('settings').upsert({user_id:currentUser.id,sessions:S.sessions,checks:S.checks});
+}
+
+// Migration depuis ancien localStorage
+async function tryMigrate(){
+  try{
+    var old=localStorage.getItem('ccm');if(!old)return;
+    var d=JSON.parse(old);
+    var total=(d.projects||[]).length+(d.modules||[]).length;
+    if(total===0)return;
+    if(!confirm(total+' élément(s) trouvé(s) dans l\'ancienne version locale. Importer dans Supabase ?'))return;
+    for(var p of(d.projects||[]))await dbSaveProject(p);
+    for(var m of(d.modules||[]))await dbSaveModule(m);
+    if(d.sessions||d.checks){S.sessions=d.sessions||0;S.checks=d.checks||{};await dbSaveSettings();}
+    localStorage.removeItem('ccm');
+    toast('Données importées depuis l\'ancienne version !');
+    await dbLoadAll();
+  }catch(e){console.error('Migration:',e);}
+}
+
+// ===== AUTH SCREENS =====
+function showAuthStep(name){
+  document.querySelectorAll('.auth-step').forEach(s=>s.classList.remove('active'));
+  document.getElementById('auth-'+name).classList.add('active');
+}
+
+// ===== INIT =====
+async function initApp(){
+  showAuthStep('loading');
+  if(!initSupabase()){showAuthStep('setup');return;}
+
+  sb.auth.onAuthStateChange(async(event,session)=>{
+    if(event==='SIGNED_IN'&&session&&!currentUser){
+      currentUser=session.user;
+      await afterLogin();
+    }
+  });
+
+  var authed=await checkAuth();
+  if(!authed){showAuthStep('login');return;}
+  await afterLogin();
+}
+
+async function afterLogin(){
+  await dbLoadAll();
+  await tryMigrate();
+  document.getElementById('auth-overlay').style.display='none';
+  document.getElementById('main-app').style.display='flex';
+  var em=document.getElementById('user-email');
+  if(em)em.textContent=currentUser.email;
+  var cfg=getConfig();
+  var du=document.getElementById('cfg-display-url');
+  var de=document.getElementById('cfg-display-email');
+  if(du)du.textContent=cfg.url;
+  if(de)de.textContent=currentUser.email;
+  renderDash();renderPills();fillModuleSelect();gP();updateApiKeyStatus();
+}
+
+// ===== TOAST =====
+function toast(msg,type){
+  var t=document.getElementById('toast');
+  t.textContent=msg;
+  t.style.background=type==='error'?'var(--red)':type==='warn'?'var(--amber)':'var(--teal)';
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ===== API KEY (Anthropic) =====
+function getApiKey(){return localStorage.getItem('ccm_api_key')||'';}
+function setApiKey(k){k?localStorage.setItem('ccm_api_key',k):localStorage.removeItem('ccm_api_key');}
+function saveApiKey(){var k=document.getElementById('settings-api-key').value.trim();setApiKey(k);updateApiKeyStatus();toast(k?'Clé API enregistrée !':'Clé supprimée');if(k)testApiKey();}
+function clearApiKey(){setApiKey('');document.getElementById('settings-api-key').value='';updateApiKeyStatus();toast('Clé supprimée');}
+async function testApiKey(){
+  var k=getApiKey()||document.getElementById('settings-api-key').value.trim();
+  if(!k){showTestResult('Entrez une clé d\'abord','warn');return;}
+  showTestResult('Test en cours...','');
+  try{
+    var r=await fetch('https://api.anthropic.com/v1/messages/count_tokens',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-6',messages:[{role:'user',content:'test'}]})});
+    if(r.ok){var d=await r.json();showTestResult('✓ Connexion réussie — '+d.input_tokens+' tokens (test)','success');setApiKey(k);updateApiKeyStatus();}
+    else{var e=await r.json();showTestResult('✗ Erreur : '+(e.error&&e.error.message||'Clé invalide'),'error');}
+  }catch(e){showTestResult('✗ Erreur réseau','error');}
+}
+function showTestResult(msg,type){
+  var el=document.getElementById('api-test-result');
+  var cls={success:'success',error:'danger',warn:'warning','':''};
+  el.innerHTML=msg?`<div class="info-box ${cls[type]||''}" style="margin:8px 0">${msg}</div>`:'';
+}
+function updateApiKeyStatus(){
+  var k=getApiKey();
+  var el=document.getElementById('tokens-api-status');
+  if(el)el.innerHTML=k?'<div style="background:var(--teal-l);color:var(--teal);border-radius:var(--r);padding:8px 12px;font-size:12px;margin-bottom:16px">✓ Clé API configurée — comptage exact activé</div>':'<div style="background:var(--amber-l);color:var(--amber);border-radius:var(--r);padding:8px 12px;font-size:12px;margin-bottom:16px">⚠ Pas de clé API — mode estimation locale (±10%). <button class="btn btn-sm" onclick="openModal(\'settings\')" style="margin-left:8px">Configurer</button></div>';
+}
+
+// ===== TOKENS =====
+function estimateTokens(t){return t?Math.ceil(t.length/3.8):0;}
+async function countTokensAPI(text){
+  var k=getApiKey();if(!k)return null;
+  try{var r=await fetch('https://api.anthropic.com/v1/messages/count_tokens',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-6',messages:[{role:'user',content:text}]})});if(r.ok){var d=await r.json();return d.input_tokens;}return null;}catch(e){return null;}
+}
+function tfClass(pct){return pct<40?'tf-ok':pct<70?'tf-warn':'tf-danger';}
+
+async function renderTokenBar(cid,text){
+  var el=document.getElementById(cid);
+  if(!el||!text||!text.trim()){if(el)el.style.display='none';return;}
+  el.style.display='';
+  var est=estimateTokens(text);
+  var pct=Math.min(Math.round(est/MAX_CTX*100),100);
+  var cost=(est/1000000*3).toFixed(5);
+  el.innerHTML=`<div class="token-bar-header"><span class="token-count">${est.toLocaleString('fr-FR')} tokens</span><span class="tbadge tbadge-est">estimation</span></div><div class="token-track"><div class="token-fill ${tfClass(pct)}" style="width:${pct}%"></div></div><div class="token-details"><span>Contexte : <span>${pct}%</span></span><span>Coût : <span>~$${cost}</span></span><span>Restant : <span>${(MAX_CTX-est).toLocaleString('fr-FR')}</span></span></div>`;
+  var k=getApiKey();
+  if(k){var exact=await countTokensAPI(text);if(exact!==null){var pct2=Math.min(Math.round(exact/MAX_CTX*100),100);var cost2=(exact/1000000*3).toFixed(5);el.innerHTML=`<div class="token-bar-header"><span class="token-count">${exact.toLocaleString('fr-FR')} tokens</span><span class="tbadge tbadge-api">API Anthropic — exact</span></div><div class="token-track"><div class="token-fill ${tfClass(pct2)}" style="width:${pct2}%"></div></div><div class="token-details"><span>Contexte : <span>${pct2}%</span></span><span>Coût : <span>~$${cost2}</span></span><span>Restant : <span>${(MAX_CTX-exact).toLocaleString('fr-FR')}</span></span></div>`;}}
+}
+
+async function analyzeTokens(){
+  var text=document.getElementById('token-input').value;
+  var result=document.getElementById('token-result');
+  if(!text||!text.trim()){result.style.display='none';return;}
+  result.style.display='';
+  var est=estimateTokens(text);var method='estimation locale';var tokens=est;
+  var k=getApiKey();if(k){var exact=await countTokensAPI(text);if(exact!==null){tokens=exact;method='API Anthropic';}}
+  var pct=Math.min(Math.round(tokens/MAX_CTX*100),100);
+  var cost=(tokens/1000000*3).toFixed(5);
+  document.getElementById('tr-tokens').textContent=tokens.toLocaleString('fr-FR');
+  document.getElementById('tr-method').textContent=method;
+  document.getElementById('tr-pct').textContent=pct+'%';
+  document.getElementById('tr-cost').textContent='$'+cost;
+  var fill=document.getElementById('tr-fill');
+  fill.style.width=pct+'%';fill.style.background=pct<40?'var(--teal)':pct<70?'var(--amber)':'var(--red)';
+  var bdg=pct<40?['badge-green','Optimal']:pct<70?['badge-amber','Attention']:['badge-red','Critique'];
+  document.getElementById('tr-status-badge').className='badge '+bdg[0];
+  document.getElementById('tr-status-badge').textContent=bdg[1];
+  var tips=[];
+  if(pct<20)tips.push({i:'✓',c:'var(--teal)',t:'Excellent — prompt concis, bonne marge disponible.'});
+  if(pct>=20&&pct<50)tips.push({i:'✓',c:'var(--teal)',t:'Bonne taille — prompt bien dimensionné pour une session Claude Code.'});
+  if(pct>=50)tips.push({i:'⚠',c:'var(--amber)',t:'Prompt volumineux — envisagez de diviser la session en deux objectifs.'});
+  if(tokens>80000)tips.push({i:'✗',c:'var(--red)',t:'Risque de perte de contexte — Claude peut oublier les instructions du début. Découpez la tâche.'});
+  if(pct>=90)tips.push({i:'✗',c:'var(--red)',t:'Fenêtre saturée — Claude risque de tronquer votre prompt. Réduisez significativement.'});
+  tips.push({i:'💡',c:'var(--blue)',t:'Rappel : CLAUDE.md et ARCHITECTURE.md lus en début de session consomment aussi des tokens.'});
+  document.getElementById('tr-tips').innerHTML=tips.map(t=>`<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;line-height:1.5"><span style="color:${t.c};min-width:20px">${t.i}</span><span style="color:var(--text2)">${t.t}</span></div>`).join('');
+}
+function loadLastPrompt(){if(!lastGeneratedPrompt){toast('Générez d\'abord un prompt','warn');return;}document.getElementById('token-input').value=lastGeneratedPrompt;analyzeTokens();}
+
+// ===== VIEWS =====
+function showView(name,el){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if(el)el.classList.add('active');
+  if(name==='dashboard')renderDash();
+  if(name==='projects')renderProjects();
+  if(name==='modules')renderModules();
+  if(name==='prompts'){renderPills();fillModuleSelect();gP();}
+  if(name==='tokens')updateApiKeyStatus();
+  if(name==='session'){fillSessionProjects();sNext(1);}
+  if(name==='checklist')renderChecklist();
+}
+
+function sBadge(s){return{cadrage:'badge-amber',modules:'badge-blue',assemblage:'badge-teal',iteration:'badge-green'}[s]||'badge-gray';}
+function sLabel(s){return{cadrage:'Cadrage',modules:'Modules',assemblage:'Assemblage',iteration:'Itération'}[s]||s;}
+
+function renderDash(){
+  document.getElementById('s-projects').textContent=S.projects.length;
+  document.getElementById('s-modules').textContent=S.modules.length;
+  document.getElementById('s-sessions').textContent=S.sessions;
+  var el=document.getElementById('dash-recent');
+  if(S.projects.length===0){el.innerHTML='';return;}
+  el.innerHTML='<div class="section-title" style="margin-top:8px">Projets récents</div>'+S.projects.slice(-3).reverse().map(p=>`<div class="card" style="margin-bottom:8px"><div class="card-header" style="margin-bottom:6px"><div><div class="card-title">${p.nom}</div><div class="card-sub">${p.desc||'Aucune description'}</div></div><span class="badge ${sBadge(p.status)}">${sLabel(p.status)}</span></div><div class="tags"><span class="tag">${p.fw}</span><span class="tag">${p.db}</span></div></div>`).join('');
+}
+
+function openModal(id){
+  if(id==='settings'){
+    document.getElementById('settings-api-key').value=getApiKey()||'';
+    var cfg=getConfig();
+    var du=document.getElementById('cfg-display-url');var de=document.getElementById('cfg-display-email');
+    if(du)du.textContent=cfg.url;if(de&&currentUser)de.textContent=currentUser.email;
+  }
+  document.getElementById('modal-'+id).style.display='';
+}
+function closeModal(id){document.getElementById('modal-'+id).style.display='none';}
+
+// ===== PROJECTS UI =====
+async function saveProjectUI(){
+  var nom=document.getElementById('np-nom').value.trim();if(!nom)return;
+  var p={id:Date.now(),nom,desc:document.getElementById('np-desc').value,fw:document.getElementById('np-fw').value,db:document.getElementById('np-db').value,status:document.getElementById('np-status').value,created:new Date().toLocaleDateString('fr-FR')};
+  S.projects.push(p);
+  await dbSaveProject(p);
+  closeModal('project');renderProjects();renderDash();
+  ['np-nom','np-desc'].forEach(id=>document.getElementById(id).value='');
+  toast('Projet créé !');
+}
+async function deleteProjectUI(id){
+  if(!confirm('Supprimer ce projet ?'))return;
+  S.projects=S.projects.filter(p=>p.id!==id);
+  await dbDeleteProject(id);
+  renderProjects();renderDash();
+}
+async function updateProjectStatus(id,val){
+  var p=S.projects.find(x=>x.id===id);if(!p)return;
+  p.status=val;await dbSaveProject(p);renderProjects();renderDash();toast('Statut mis à jour');
+}
+function renderProjects(){
+  var el=document.getElementById('projects-list');
+  if(S.projects.length===0){el.innerHTML='<div class="empty-state"><div class="empty-icon">◫</div><div class="empty-text">Aucun projet encore.</div><button class="btn btn-primary" onclick="openModal(\'project\')">+ Créer mon premier projet</button></div>';return;}
+  el.innerHTML=S.projects.map(p=>`<div class="card"><div class="card-header"><div><div class="card-title">${p.nom}</div><div class="card-sub">${p.desc||'Aucune description'}</div></div><div style="display:flex;align-items:center;gap:8px"><select class="form-input" style="width:150px;padding:4px 8px;font-size:12px" onchange="updateProjectStatus(${p.id},this.value)"><option value="cadrage"${p.status==='cadrage'?' selected':''}>Cadrage</option><option value="modules"${p.status==='modules'?' selected':''}>Modules</option><option value="assemblage"${p.status==='assemblage'?' selected':''}>Assemblage</option><option value="iteration"${p.status==='iteration'?' selected':''}>Itération</option></select><button class="btn btn-sm btn-danger" onclick="deleteProjectUI(${p.id})">Supprimer</button></div></div><div class="tags"><span class="tag">${p.fw}</span><span class="tag">${p.db}</span><span class="tag">Créé le ${p.created}</span></div></div>`).join('');
+}
+
+// ===== MODULES UI =====
+function selMCat(el,cat){S.modCat=cat;el.closest('.pill-group').querySelectorAll('.pill').forEach(p=>p.classList.remove('selected'));el.classList.add('selected');}
+async function saveModuleUI(){
+  var nom=document.getElementById('nm-nom').value.trim();if(!nom)return;
+  var m={id:Date.now(),nom,desc:document.getElementById('nm-desc').value,cat:S.modCat,status:document.getElementById('nm-status').value,icon:document.getElementById('nm-icon').value||'⬡',specs:document.getElementById('nm-specs').value.trim(),specsPath:document.getElementById('nm-path').value.trim()};
+  S.modules.push(m);await dbSaveModule(m);
+  closeModal('module');renderModules();renderDash();fillModuleSelect();
+  ['nm-nom','nm-desc','nm-icon','nm-specs','nm-path'].forEach(id=>document.getElementById(id).value='');
+  toast('Module ajouté !');
+}
+async function deleteModuleUI(id){
+  if(!confirm('Supprimer ce module ?'))return;
+  S.modules=S.modules.filter(m=>m.id!==id);
+  await dbDeleteModule(id);renderModules();renderDash();fillModuleSelect();
+}
+async function updateModStatus(id,val){
+  var m=S.modules.find(x=>x.id===id);if(!m)return;
+  m.status=val;await dbSaveModule(m);renderModules();toast('Statut mis à jour');
+}
+function filterMod(f,el){S.modFilter=f;document.querySelectorAll('#view-modules .tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderModules();}
+
+function viewSpecs(id){
+  var m=S.modules.find(x=>x.id===id);if(!m)return;
+  currentSpecsModuleId=id;
+  document.getElementById('specs-modal-title').textContent=m.icon+' '+m.nom;
+  document.getElementById('specs-badge').innerHTML=(m.specs?'✓ Specs disponibles':'Aucune spec')+(m.specsPath?'&nbsp;&nbsp;|&nbsp;&nbsp;📁 '+m.specsPath:'');
+  document.getElementById('specs-viewer').textContent=m.specs||'Aucune description fonctionnelle. Cliquez sur Modifier.';
+  var prompt=buildModulePrompt(m);
+  document.getElementById('specs-prompt-text').textContent=prompt;
+  openModal('specs');renderTokenBar('tc-specs',prompt);
+}
+function buildModulePrompt(m){
+  var specs=m.specs&&m.specs.length>10?`\n[DESCRIPTION FONCTIONNELLE COMPLÈTE]\nLis attentivement avant de commencer :\n\n${m.specs}\n`:`\n[DESCRIPTION]\nÀ compléter.\n`;
+  return `Tu vas créer le module "${m.nom}" dans le dossier modules/${m.nom}/.\nNe touche à AUCUN autre fichier du projet.\n${specs}\n[CONTRAINTES]\n- Commentaires en français\n- Fichier principal max 150 lignes\n- Respecter les variables CSS de /styles/theme.css${m.specsPath?'\n- Référence : '+m.specsPath:''}\n\n[LIVRABLE]\n1. Confirme ta compréhension\n2. Crée le README.md avec exemple d'utilisation\n3. Attends ma validation du README\n4. Développe le composant et son CSS`;
+}
+function copySpecsPrompt(){var txt=document.getElementById('specs-prompt-text').textContent;navigator.clipboard.writeText(txt).then(()=>toast('Copié !')).catch(()=>{var ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('Copié !');});}
+function editModuleSpecs(id){
+  var m=S.modules.find(x=>x.id===id);if(!m)return;
+  editModuleId=id;closeModal('specs');
+  ['em-nom','em-desc','em-icon','em-path','em-specs'].forEach(fid=>{
+    var keys={nom:'nom',desc:'desc',icon:'icon',path:'specsPath',specs:'specs'};
+    var k=fid.replace('em-','');
+    document.getElementById(fid).value=m[k]||'';
+  });
+  document.getElementById('em-status').value=m.status;
+  openModal('edit-module');
+}
+async function saveEditModuleUI(){
+  var m=S.modules.find(x=>x.id===editModuleId);if(!m)return;
+  m.nom=document.getElementById('em-nom').value.trim()||m.nom;
+  m.desc=document.getElementById('em-desc').value;
+  m.status=document.getElementById('em-status').value;
+  m.icon=document.getElementById('em-icon').value||m.icon;
+  m.specsPath=document.getElementById('em-path').value.trim();
+  m.specs=document.getElementById('em-specs').value.trim();
+  await dbSaveModule(m);closeModal('edit-module');renderModules();fillModuleSelect();toast('Module mis à jour !');
+}
+
+function renderModules(){
+  var grid=document.getElementById('modules-grid');
+  var list=S.modules.filter(m=>S.modFilter==='tous'?true:S.modFilter==='specs'?m.specs&&m.specs.length>10:m.status===S.modFilter);
+  var cat={ui:'Interface',data:'Données',auth:'Auth',export:'Export',util:'Utilitaire'};
+  if(list.length===0){grid.innerHTML='<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">⬡</div><div class="empty-text">'+(S.modFilter==='tous'?'Bibliothèque vide.':'Aucun module dans ce filtre.')+'</div>'+(S.modFilter==='tous'?'<button class="btn btn-primary" onclick="openModal(\'module\')">+ Ajouter</button>':'')+'</div>';return;}
+  grid.innerHTML=list.map(m=>`<div class="module-card${m.specs&&m.specs.length>10?' has-spec':''}"><div class="mod-status ms-${m.status}"></div><div class="module-icon">${m.icon}</div><div class="module-name">${m.nom}</div><div class="module-desc">${m.desc||cat[m.cat]||m.cat}</div>${m.specsPath?`<div style="font-size:10px;color:var(--text3);margin-top:4px;font-family:var(--m)">📁 ${m.specsPath}</div>`:''}<div class="module-actions"><select style="font-size:10px;padding:2px 5px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);cursor:pointer" onchange="updateModStatus(${m.id},this.value)"><option value="todo"${m.status==='todo'?' selected':''}>À faire</option><option value="wip"${m.status==='wip'?' selected':''}>En cours</option><option value="done"${m.status==='done'?' selected':''}>Terminé</option></select><button class="btn btn-sm ${m.specs&&m.specs.length>10?'btn-teal':''}" onclick="viewSpecs(${m.id})" style="flex:1;justify-content:center;font-size:11px">${m.specs&&m.specs.length>10?'Voir specs':'+ Specs'}</button><button onclick="deleteModuleUI(${m.id})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;line-height:1">×</button></div></div>`).join('');
+}
+
+// ===== PROMPTS =====
+function renderPills(){
+  var el=document.getElementById('pd-pills');if(!el)return;
+  var def=['rich-editor','progress-gauge','planning','auth','export','dashboard','notification','file-upload'];
+  var all=[...new Set([...def,...S.modules.map(m=>m.nom)])];
+  el.innerHTML=all.map(m=>`<div class="pill" onclick="this.classList.toggle('selected');gP()">${m}</div>`).join('');
+}
+function getSelMods(){return Array.from(document.querySelectorAll('#pd-pills .pill.selected')).map(p=>p.textContent);}
+function fillModuleSelect(){
+  var sel=document.getElementById('pm-select');if(!sel)return;
+  sel.innerHTML='<option value="">-- Saisir manuellement --</option>'+S.modules.filter(m=>m.specs&&m.specs.length>10).map(m=>`<option value="${m.id}">${m.icon||'⬡'} ${m.nom} (specs)</option>`).join('');
+}
+function loadModuleSpecs(){
+  var id=parseInt(document.getElementById('pm-select').value);
+  if(!id){document.getElementById('pm-nom').value='';gM();return;}
+  var m=S.modules.find(x=>x.id===id);if(!m)return;
+  document.getElementById('pm-nom').value=m.nom;
+  document.getElementById('pm-desc').value=m.specs?'[Specs intégrées automatiquement]':m.desc||'';
+  gM();
+}
+function switchPTab(tab,el){
+  ['demarrage','module','bug','reprise'].forEach(t=>{document.getElementById('ptab-'+t).style.display=t===tab?'':'none';});
+  document.querySelectorAll('#view-prompts .tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');
+  if(tab==='module'){fillModuleSelect();gM();}
+}
+function setPrompt(sid,tcid,txt){
+  document.getElementById(sid).textContent=txt;lastGeneratedPrompt=txt;
+  clearTimeout(tokenDebounce);tokenDebounce=setTimeout(()=>renderTokenBar(tcid,txt),400);
+}
+function gP(){
+  var nom=document.getElementById('pd-nom').value||'[Nom du projet]';
+  var desc=document.getElementById('pd-desc').value||'[Description]';
+  var users=document.getElementById('pd-users').value||'[Utilisateurs]';
+  var fw=document.getElementById('pd-fw').value;var db=document.getElementById('pd-db').value;
+  var mods=getSelMods();
+  setPrompt('pt-d','tc-d',`Je démarre un nouveau projet web.\n\n[CONTEXTE]\nApplication : ${nom}\nDescription : ${desc}\nUtilisateurs : ${users}\n\n[STACK]\nFramework : ${fw}\nBase de données : ${db}\nDéploiement : Vercel${mods.length?'\n\n[MODULES DISPONIBLES]\n'+mods.map(m=>'- '+m).join('\n'):''}\n\n[À GÉNÉRER]\n1. CLAUDE.md avec les règles du projet\n2. ARCHITECTURE.md avec les modules\n3. Arborescence complète des dossiers\n4. README.md de présentation\n\nCONTRAINTES :\n- Commentaires en français\n- Fichiers max 200 lignes\n- Un composant = un fichier\n\nNe commence PAS à coder. Génère uniquement la documentation.`);
+}
+function gM(){
+  var selId=parseInt(document.getElementById('pm-select').value);
+  var sm=selId?S.modules.find(x=>x.id===selId):null;
+  var nom=document.getElementById('pm-nom').value||(sm?sm.nom:'[module]');
+  var fw=document.getElementById('pm-fw').value;
+  var cst=document.getElementById('pm-const').value;
+  var specs=sm&&sm.specs&&sm.specs.length>10?`\n[DESCRIPTION FONCTIONNELLE COMPLÈTE]\nLis attentivement avant de commencer :\n\n${sm.specs}\n`:`\n[DESCRIPTION]\n${document.getElementById('pm-desc').value||'[à définir]'}\n\n[INTERFACE]\nProps : ${document.getElementById('pm-props').value||'[à définir]'}\nÉvénements : ${document.getElementById('pm-events').value||'[à définir]'}\n`;
+  setPrompt('pt-m','tc-m',`Tu vas créer le module "${nom}" dans le dossier modules/${nom}/.\nNe touche à AUCUN autre fichier.\nStack : ${fw}\n${specs}\n[CONTRAINTES]\n- Commentaires en français\n- Max 150 lignes par fichier\n- Respecter /styles/theme.css${cst?'\n- '+cst:''}${sm&&sm.specsPath?'\n- Référence : '+sm.specsPath:''}\n\n[LIVRABLE]\n1. Confirme ta compréhension\n2. README.md avec exemple d'utilisation\n3. Attends ma validation\n4. Composant principal + CSS`);
+}
+function gB(){
+  var f=document.getElementById('pb-fic').value||'[fichier]';
+  var a=document.getElementById('pb-act').value||'[problème]';
+  var b=document.getElementById('pb-att').value||'[attendu]';
+  var c=document.getElementById('pb-cond').value||'[conditions]';
+  setPrompt('pt-b','tc-b',`BUG À CORRIGER — Session dédiée\n\nFichier : ${f}\n\nComportement ACTUEL :\n${a}\n\nComportement ATTENDU :\n${b}\n\nConditions :\n${c}\n\nCONTRAINTE ABSOLUE :\nModifie UNIQUEMENT le fichier indiqué.\nSi d'autres fichiers sont nécessaires, liste-les d'abord.`);
+}
+function gR(){
+  var p=document.getElementById('pr-proj').value||'[projet]';
+  var f=document.getElementById('pr-fait').value||'[ce qui a été fait]';
+  var o=document.getElementById('pr-obj').value||'[objectif]';
+  setPrompt('pt-r','tc-r',`Reprise de session — ${p}\n\nLis d'abord :\n1. CLAUDE.md\n2. ARCHITECTURE.md\n3. CHANGELOG.md\n\nConfirme-moi que tu les as lus.\n\n---\n\nDernière session :\n${f}\n\nObjectif aujourd'hui (1 seule chose) :\n${o}`);
+}
+function copyP(boxId,btnId){
+  var el=document.getElementById(boxId);
+  var txt=el.querySelector('span')?el.querySelector('span').textContent:el.textContent;
+  navigator.clipboard.writeText(txt).then(()=>{var btn=document.getElementById(btnId);var orig=btn.textContent;btn.textContent='Copié !';btn.classList.add('copied');setTimeout(()=>{btn.textContent=orig;btn.classList.remove('copied');},1500);}).catch(()=>{var ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('Copié !');});
+}
+
+// ===== SESSION =====
+function selST(el,type){S.sType=type;el.closest('.pill-group').querySelectorAll('.pill').forEach(p=>p.classList.remove('selected'));el.classList.add('selected');}
+function fillSessionProjects(){var sel=document.getElementById('ss-proj');if(!sel)return;sel.innerHTML='<option value="">Sélectionner...</option>'+S.projects.map(p=>`<option value="${p.nom}">${p.nom}</option>`).join('');}
+function sNext(step){
+  S.sStep=step;[1,2,3].forEach(i=>{document.getElementById('ss'+i).style.display=i===step?'':'none';var ind=document.getElementById('si'+i);ind.className='step'+(i===step?' active':i<step?' done':'');});
+  if(step===3)buildSS3();
+}
+function buildSS3(){
+  var obj=document.getElementById('ss-obj').value||'[objectif]';
+  var fic=document.getElementById('ss-fic').value||'[fichier]';
+  var proj=document.getElementById('ss-proj').value||'[projet]';
+  var types={module:'Développer un module',bug:'Corriger un bug',feature:'Nouvelle fonctionnalité',refacto:'Refactoring'};
+  var chks=["L'objectif est unique et tient en une phrase","Le fichier ou module cible est identifié","Le dernier commit Git est à jour","CLAUDE.md est à jour"];
+  document.getElementById('ss-checks').innerHTML=chks.map(c=>`<div class="checklist-item"><div class="check-box" onclick="this.classList.toggle('checked');this.textContent=this.classList.contains('checked')?'✓':'';this.nextElementSibling.classList.toggle('done',this.classList.contains('checked'))"></div><span class="check-label">${c}</span></div>`).join('');
+  var txt=`Reprise de session — ${proj}\n\nLis : CLAUDE.md, ARCHITECTURE.md, CHANGELOG.md\nConfirme-moi que tu les as lus.\n\n---\n\nType : ${types[S.sType]}\nObjectif : ${obj}\nFichier(s) : ${fic}\n\nDécris ce que tu vas faire AVANT d'écrire du code.`;
+  document.getElementById('ss-pt').textContent=txt;renderTokenBar('tc-session',txt);
+}
+async function saveSession(){
+  S.sessions++;await dbSaveSettings();sNext(1);
+  document.getElementById('ss-obj').value='';document.getElementById('ss-fic').value='';
+  renderDash();toast('Session enregistrée !');showView('dashboard',document.querySelectorAll('.nav-item')[0]);
+}
+
+// ===== CHECKLIST =====
+function switchCTab(tab,el){S.checkTab=tab;document.querySelectorAll('#view-checklist .tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderChecklist();}
+function renderChecklist(){
+  var items=CL[S.checkTab]||[];var key='c_'+S.checkTab;if(!S.checks[key])S.checks[key]={};
+  var done=items.filter((_,i)=>S.checks[key][i]).length;
+  var pct=items.length?Math.round(done/items.length*100):0;
+  var labels={'avant-projet':'Avant de démarrer un projet','avant-session':'Avant chaque session','apres-session':'Après chaque session','livraison':'Avant livraison aux devs'};
+  document.getElementById('checklist-content').innerHTML=`<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div><div style="font-size:14px;font-weight:600;color:var(--text)">${labels[S.checkTab]}</div><div style="font-size:12px;color:var(--text2);margin-top:2px">${done} / ${items.length} validés</div></div><button class="btn btn-sm" onclick="resetCL()">Réinitialiser</button></div><div class="progress-bar"><div class="progress-fill ${done===items.length?'pf-green':'pf-blue'}" style="width:${pct}%"></div></div><div style="margin-top:18px">${items.map((item,i)=>`<div class="checklist-item"><div class="check-box${S.checks[key][i]?' checked':''}" onclick="toggleCL(${i})">${S.checks[key][i]?'✓':''}</div><span class="check-label${S.checks[key][i]?' done':''}">${item}</span></div>`).join('')}</div></div>`;
+}
+async function toggleCL(i){var key='c_'+S.checkTab;if(!S.checks[key])S.checks[key]={};S.checks[key][i]=!S.checks[key][i];await dbSaveSettings();renderChecklist();}
+async function resetCL(){S.checks['c_'+S.checkTab]={};await dbSaveSettings();renderChecklist();}
+
+// ===== EXPORT / IMPORT =====
+function exportData(){
+  var blob=new Blob([JSON.stringify({projects:S.projects,modules:S.modules,sessions:S.sessions,checks:S.checks},null,2)],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ccm-sauvegarde-'+new Date().toISOString().slice(0,10)+'.json';a.click();
+  toast('Données exportées !');
+}
+async function importData(input){
+  var file=input.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=async function(e){
+    try{
+      var d=JSON.parse(e.target.result);
+      if(!confirm((d.projects||[]).length+' projets et '+(d.modules||[]).length+' modules à importer. Continuer ?'))return;
+      for(var p of(d.projects||[]))await dbSaveProject(p);
+      for(var m of(d.modules||[]))await dbSaveModule(m);
+      if(d.sessions||d.checks){S.sessions=d.sessions||0;S.checks=d.checks||{};await dbSaveSettings();}
+      await dbLoadAll();renderDash();toast('Données importées !');
+    }catch(err){alert('Fichier invalide.');}
+  };
+  reader.readAsText(file);input.value='';
+}
+
+// ===== START =====
+initApp();
+</script>
+</body>
+</html>
