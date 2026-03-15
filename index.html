@@ -682,14 +682,7 @@ function resetConfig(){localStorage.removeItem('sb_url');localStorage.removeItem
 function initSupabase(){
   var c=getConfig();
   if(!c.url||!c.key)return false;
-  sb=supabase.createClient(c.url,c.key,{
-    auth:{
-      flowType:'pkce',
-      detectSessionInUrl:true,
-      persistSession:true,
-      autoRefreshToken:true
-    }
-  });
+  sb=supabase.createClient(c.url,c.key);
   return true;
 }
 
