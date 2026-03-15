@@ -684,12 +684,10 @@ function initSupabase(){
   if(!c.url||!c.key)return false;
   sb=supabase.createClient(c.url,c.key,{
     auth:{
-      storageKey:'sb-'+new URL(c.url).hostname.split('.')[0]+'-auth-token',
       flowType:'pkce',
       detectSessionInUrl:true,
       persistSession:true,
-      autoRefreshToken:true,
-      lock:{acquireTimeout:3000,debug:false}
+      autoRefreshToken:true
     }
   });
   return true;
