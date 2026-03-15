@@ -235,6 +235,8 @@ select.form-input{cursor:pointer}
     <div class="nav-item" onclick="showView('checklist',this)"><span class="nav-icon">✓</span>Checklists</div>
     <div class="sidebar-bottom">
       <div id="user-email" style="font-size:10px;color:var(--text3);margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+      <button class="btn btn-primary btn-sm" id="publish-btn" onclick="publishToGitHub()" style="width:100%;justify-content:center;margin-bottom:6px">↑ Publier sur Netlify</button>
+      <div id="publish-status" style="font-size:10px;color:var(--text3);margin-bottom:6px;display:none"></div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-sm" onclick="exportData()" style="flex:1;justify-content:center">↓ Export</button>
         <button class="btn btn-sm" onclick="document.getElementById('import-file').click()" style="flex:1;justify-content:center">↑ Import</button>
@@ -306,6 +308,12 @@ select.form-input{cursor:pointer}
       <div id="ptab-demarrage">
         <div class="two-col">
           <div>
+            <div class="form-group">
+              <label class="form-label">Charger un projet existant <span class="hint">(facultatif)</span></label>
+              <select class="form-input" id="pd-project-select" onchange="loadProjectIntoPrompt()">
+                <option value="">-- Saisir manuellement --</option>
+              </select>
+            </div>
             <div class="form-group"><label class="form-label">Nom du projet</label><input class="form-input" id="pd-nom" placeholder="ex: Expert Data Mining" oninput="gP()"></div>
             <div class="form-group"><label class="form-label">Description</label><textarea class="form-input" id="pd-desc" placeholder="Ce que fait l'application..." oninput="gP()" style="min-height:80px"></textarea></div>
             <div class="form-group"><label class="form-label">Utilisateurs et rôles</label><input class="form-input" id="pd-users" placeholder="ex: Experts (saisie), Admin (suivi)" oninput="gP()"></div>
@@ -479,8 +487,41 @@ select.form-input{cursor:pointer}
   <div class="modal-backdrop" onclick="if(event.target===this)closeModal('settings')">
     <div class="modal">
       <div class="modal-title">⚙️ Paramètres</div>
+
+      <!-- GITHUB -->
+      <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Publication GitHub → Netlify</div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">Configurez GitHub pour publier l'outil en un clic depuis la sidebar. Le token doit avoir les droits <code style="background:var(--bg2);padding:1px 4px;border-radius:3px">repo</code>.</p>
+      <div class="form-group">
+        <label class="form-label">Token GitHub <span class="hint">(github.com → Settings → Developer settings → Tokens)</span></label>
+        <div class="api-key-input-wrap">
+          <input class="form-input" type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+          <button class="toggle-key-btn" onclick="this.previousElementSibling.type=this.previousElementSibling.type==='password'?'text':'password';this.textContent=this.previousElementSibling.type==='password'?'Afficher':'Masquer'">Afficher</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nom d'utilisateur GitHub</label>
+        <input class="form-input" id="gh-user" placeholder="ex: votre-pseudo-github">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nom du dépôt</label>
+        <input class="form-input" id="gh-repo" placeholder="ex: claude-code-manager">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nom du fichier dans le dépôt</label>
+        <input class="form-input" id="gh-filename" placeholder="ex: index.html" value="index.html">
+      </div>
+      <div class="info-box warning" style="margin-bottom:12px">⚠️ Le token GitHub est stocké uniquement dans ce navigateur. Ne partagez jamais ce token.</div>
+      <div id="gh-test-result"></div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-primary" onclick="saveGitHubConfig()">Enregistrer</button>
+        <button class="btn" onclick="testGitHubConfig()">Tester la connexion</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- ANTHROPIC -->
       <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Clé API Anthropic — Comptage de tokens</div>
-      <p style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">Entrez votre clé API pour activer le comptage exact de tokens. Cette fonctionnalité est <strong>gratuite</strong> et ne consomme pas votre quota.</p>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">Activez le comptage exact de tokens. Fonctionnalité <strong>gratuite</strong>, ne consomme pas votre quota.</p>
       <div class="form-group">
         <label class="form-label">Clé API <span class="hint">(sk-ant-...)</span></label>
         <div class="api-key-input-wrap">
@@ -488,18 +529,21 @@ select.form-input{cursor:pointer}
           <button class="toggle-key-btn" onclick="this.previousElementSibling.type=this.previousElementSibling.type==='password'?'text':'password';this.textContent=this.previousElementSibling.type==='password'?'Afficher':'Masquer'">Afficher</button>
         </div>
       </div>
-      <div class="info-box warning">⚠️ Stockée uniquement dans votre navigateur. Utilisée uniquement pour les appels de comptage de tokens vers api.anthropic.com.</div>
+      <div class="info-box warning">⚠️ Stockée uniquement dans votre navigateur.</div>
       <div id="api-test-result"></div>
       <div style="display:flex;gap:8px;margin-top:12px">
         <button class="btn btn-primary" onclick="saveApiKey()">Enregistrer</button>
         <button class="btn" onclick="testApiKey()">Tester</button>
         <button class="btn btn-danger btn-sm" onclick="clearApiKey()">Supprimer</button>
       </div>
+
       <div class="divider"></div>
+
+      <!-- SUPABASE -->
       <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Connexion Supabase</div>
-      <p style="font-size:12px;color:var(--text2);line-height:1.6">Vos données sont synchronisées sur Supabase. Vous pouvez vous connecter depuis n'importe quel ordinateur.</p>
-      <div style="margin-top:8px;font-size:12px;color:var(--text2)">URL : <strong id="cfg-display-url" style="color:var(--text)"></strong></div>
-      <div style="margin-top:4px;font-size:12px;color:var(--text2)">Email : <strong id="cfg-display-email" style="color:var(--text)"></strong></div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">URL : <strong id="cfg-display-url" style="color:var(--text)"></strong></div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">Email : <strong id="cfg-display-email" style="color:var(--text)"></strong></div>
+
       <div class="action-row"><button class="btn btn-primary" onclick="closeModal('settings')">Fermer</button></div>
     </div>
   </div>
@@ -880,6 +924,11 @@ function openModal(id){
     var cfg=getConfig();
     var du=document.getElementById('cfg-display-url');var de=document.getElementById('cfg-display-email');
     if(du)du.textContent=cfg.url;if(de&&currentUser)de.textContent=currentUser.email;
+    var ghc=getGHConfig();
+    document.getElementById('gh-token').value=ghc.token;
+    document.getElementById('gh-user').value=ghc.user;
+    document.getElementById('gh-repo').value=ghc.repo;
+    document.getElementById('gh-filename').value=ghc.filename||'index.html';
   }
   document.getElementById('modal-'+id).style.display='';
 }
@@ -983,6 +1032,30 @@ function renderPills(){
   var def=['rich-editor','progress-gauge','planning','auth','export','dashboard','notification','file-upload'];
   var all=[...new Set([...def,...S.modules.map(m=>m.nom)])];
   el.innerHTML=all.map(m=>`<div class="pill" onclick="this.classList.toggle('selected');gP()">${m}</div>`).join('');
+  fillProjectSelect();
+}
+function fillProjectSelect(){
+  var sel=document.getElementById('pd-project-select');if(!sel)return;
+  sel.innerHTML='<option value="">-- Saisir manuellement --</option>'+
+    S.projects.map(p=>`<option value="${p.id}">${p.nom} (${p.fw} · ${p.db})</option>`).join('');
+}
+function loadProjectIntoPrompt(){
+  var id=parseInt(document.getElementById('pd-project-select').value);
+  if(!id){
+    document.getElementById('pd-nom').value='';
+    document.getElementById('pd-desc').value='';
+    document.getElementById('pd-users').value='';
+    gP();return;
+  }
+  var p=S.projects.find(x=>x.id===id);if(!p)return;
+  document.getElementById('pd-nom').value=p.nom;
+  document.getElementById('pd-desc').value=p.desc||'';
+  document.getElementById('pd-users').value='';
+  var fw=document.getElementById('pd-fw');
+  var db=document.getElementById('pd-db');
+  for(var i=0;i<fw.options.length;i++){if(fw.options[i].text===p.fw){fw.selectedIndex=i;break;}}
+  for(var i=0;i<db.options.length;i++){if(db.options[i].text===p.db){db.selectedIndex=i;break;}}
+  gP();toast('Projet "'+p.nom+'" chargé dans le générateur');
 }
 function getSelMods(){return Array.from(document.querySelectorAll('#pd-pills .pill.selected')).map(p=>p.textContent);}
 function fillModuleSelect(){
@@ -1097,6 +1170,106 @@ async function importData(input){
     }catch(err){alert('Fichier invalide.');}
   };
   reader.readAsText(file);input.value='';
+}
+
+// ===== GITHUB PUBLISH =====
+function getGHConfig(){
+  return{
+    token:localStorage.getItem('gh_token')||'',
+    user:localStorage.getItem('gh_user')||'',
+    repo:localStorage.getItem('gh_repo')||'',
+    filename:localStorage.getItem('gh_filename')||'index.html'
+  };
+}
+function saveGitHubConfig(){
+  var t=document.getElementById('gh-token').value.trim();
+  var u=document.getElementById('gh-user').value.trim();
+  var r=document.getElementById('gh-repo').value.trim();
+  var f=document.getElementById('gh-filename').value.trim()||'index.html';
+  if(!t||!u||!r){toast('Remplissez token, utilisateur et dépôt','error');return;}
+  localStorage.setItem('gh_token',t);
+  localStorage.setItem('gh_user',u);
+  localStorage.setItem('gh_repo',r);
+  localStorage.setItem('gh_filename',f);
+  toast('Configuration GitHub enregistrée !');
+}
+async function testGitHubConfig(){
+  var c=getGHConfig();
+  var t=document.getElementById('gh-token').value.trim()||c.token;
+  var u=document.getElementById('gh-user').value.trim()||c.user;
+  var r=document.getElementById('gh-repo').value.trim()||c.repo;
+  if(!t||!u||!r){showGHResult('Remplissez tous les champs d\'abord','warn');return;}
+  showGHResult('Test en cours...','');
+  try{
+    var resp=await fetch(`https://api.github.com/repos/${u}/${r}`,{
+      headers:{'Authorization':'token '+t,'Accept':'application/vnd.github.v3+json'}
+    });
+    if(resp.ok){
+      var d=await resp.json();
+      showGHResult('✓ Dépôt trouvé : '+d.full_name+(d.private?' (privé)':' (public)'),'success');
+    } else {
+      showGHResult('✗ Erreur '+resp.status+' — vérifiez le token et le nom du dépôt','error');
+    }
+  }catch(e){showGHResult('✗ Erreur réseau','error');}
+}
+function showGHResult(msg,type){
+  var el=document.getElementById('gh-test-result');
+  var cls={success:'success',error:'danger',warn:'warning','':''};
+  el.innerHTML=msg?`<div class="info-box ${cls[type]||''}" style="margin:8px 0">${msg}</div>`:'';
+}
+
+async function publishToGitHub(){
+  var c=getGHConfig();
+  if(!c.token||!c.user||!c.repo){
+    toast('Configurez GitHub dans les Paramètres ⚙️ d\'abord','warn');
+    openModal('settings');return;
+  }
+  var btn=document.getElementById('publish-btn');
+  var status=document.getElementById('publish-status');
+  btn.disabled=true;btn.textContent='Publication...';
+  status.style.display='';status.textContent='Récupération du fichier courant...';
+  try{
+    // 1. Récupérer le contenu actuel de la page
+    var html=document.documentElement.outerHTML;
+    var encoded=btoa(unescape(encodeURIComponent(html)));
+
+    // 2. Récupérer le SHA du fichier existant
+    status.textContent='Vérification du dépôt...';
+    var sha='';
+    try{
+      var getResp=await fetch(`https://api.github.com/repos/${c.user}/${c.repo}/contents/${c.filename}`,{
+        headers:{'Authorization':'token '+c.token,'Accept':'application/vnd.github.v3+json'}
+      });
+      if(getResp.ok){var fd=await getResp.json();sha=fd.sha;}
+    }catch(e){}
+
+    // 3. Pousser le fichier
+    status.textContent='Envoi vers GitHub...';
+    var now=new Date().toLocaleString('fr-FR');
+    var body={message:'Mise à jour Claude Code Manager — '+now,content:encoded};
+    if(sha)body.sha=sha;
+    var putResp=await fetch(`https://api.github.com/repos/${c.user}/${c.repo}/contents/${c.filename}`,{
+      method:'PUT',
+      headers:{'Authorization':'token '+c.token,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    if(putResp.ok){
+      status.textContent='✓ Publié ! Netlify met à jour dans ~30s';
+      status.style.color='var(--teal)';
+      toast('Publié sur GitHub → Netlify se met à jour !');
+      setTimeout(()=>{status.style.display='none';status.style.color='';},8000);
+    } else {
+      var err=await putResp.json();
+      throw new Error(err.message||'Erreur '+putResp.status);
+    }
+  }catch(e){
+    status.textContent='✗ Erreur : '+e.message;
+    status.style.color='var(--red)';
+    toast('Erreur de publication : '+e.message,'error');
+    setTimeout(()=>{status.style.display='none';status.style.color='';},6000);
+  }finally{
+    btn.disabled=false;btn.textContent='↑ Publier sur Netlify';
+  }
 }
 
 // ===== START =====
