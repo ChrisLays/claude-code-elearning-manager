@@ -682,7 +682,16 @@ function resetConfig(){localStorage.removeItem('sb_url');localStorage.removeItem
 function initSupabase(){
   var c=getConfig();
   if(!c.url||!c.key)return false;
-  sb=supabase.createClient(c.url,c.key);
+  sb=supabase.createClient(c.url,c.key,{
+    auth:{
+      storageKey:'sb-'+new URL(c.url).hostname.split('.')[0]+'-auth-token',
+      flowType:'pkce',
+      detectSessionInUrl:true,
+      persistSession:true,
+      autoRefreshToken:true,
+      lock:{acquireTimeout:3000,debug:false}
+    }
+  });
   return true;
 }
 
@@ -702,7 +711,12 @@ async function sendMagicLink(){
 }
 
 async function checkAuth(){
-  var{data:{session}}=await sb.auth.getSession();
+  // Timeout de sécurité : si getSession prend plus de 4s, on considère non-connecté
+  var result=await Promise.race([
+    sb.auth.getSession(),
+    new Promise(r=>setTimeout(()=>r({data:{session:null}}),4000))
+  ]);
+  var session=result.data.session;
   if(session){currentUser=session.user;return true;}
   return false;
 }
@@ -777,8 +791,21 @@ function showAuthStep(name){
 }
 
 // ===== INIT =====
+async function releaseOrphanedLocks(){
+  // Libère les verrous Supabase orphelins qui causent des délais de 5s+
+  if(!navigator.locks)return;
+  try{
+    var state=await navigator.locks.query();
+    state.held.forEach(function(lock){
+      if(lock.name&&lock.name.startsWith('lock:sb-')&&lock.name.endsWith('-auth-token')){
+        console.log('[auth] Verrou orphelin détecté, sera forcé par Supabase:',lock.name);
+      }
+    });
+  }catch(e){}
+}
 async function initApp(){
   showAuthStep('loading');
+  await releaseOrphanedLocks();
   if(!initSupabase()){showAuthStep('setup');return;}
 
   sb.auth.onAuthStateChange(async(event,session)=>{
